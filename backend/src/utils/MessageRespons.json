@@ -1,0 +1,20 @@
+
+{
+    "required" : "filed required",
+    "created":"Successfully register",
+    "passwordvalidate": "Password at least 1 upper case, lower case, numeric, and special character must be",
+    "checkemail":"email address alraedy register",
+    "checkphone": "phone number alraedy register",
+    "bad_request" :"User not register ",
+    "login":"Invalid Login Credential",
+    "internal_server_error":"Internal server error",
+    "notmatch": "Password doesn,t match",
+    "loginsuccess":"User logged in successfully",
+    "logout": "User Successfully Logout",
+    "notsuccess": "Couldn't login. Please try again later.",
+    "notcreatetoken": "Couldn't create access token. Please try again later",
+    "isdeleted":"You must verify your account and get activate your account"
+
+
+
+}
