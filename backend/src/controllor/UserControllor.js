@@ -2,20 +2,20 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const moment = require("moment");
 const { StatusCodes } = require("http-status-codes");
-
+const fs = require('fs');
 const User = require("../models/user");
 const  {TokenGenerate}  = require("../utils/jwt");
 const { blockTokens } = require("../middleware/Auth");
 const MessageRespons = require("../utils/MessageRespons.json");
-
 const {
   passwordencrypt,
   validatePassword,
 } = require("../services/CommonServices");
+const uploadFile = require("../middleware/Upload")
 
 exports.Register = async (req, res) => {
   try {
-    let { name, email, phone, password, role } = req.body;
+    let { name, email, phone, password,profile, role } = req.body;
 
     if (!name || !email || !phone) {
       return res.status(400).json({
@@ -49,6 +49,7 @@ exports.Register = async (req, res) => {
           phone,
           password,
           role,
+          profile:req.profile,
           created,
         });
 
@@ -306,6 +307,137 @@ exports.alluserfind = async (req, res) => {
       status: StatusCodes.INTERNAL_SERVER_ERROR,
       error: true,
       message: MessageRespons.internal_server_error,
+    });
+  }
+};
+
+exports.UserPasswordChange = async(req,res) => {
+    const { _id, currentPassword, newPassword, confirmPassword } = req.body;
+  
+    if (!newPassword || !confirmPassword || !currentPassword) {
+      return res.status(403).json({
+        status: 403,
+        error: true,
+        message: MessageRespons.EMPTYFIELDS,
+      });
+    } else if (!validatePassword(newPassword)) {
+      return res.status(400).json({
+        status: 400,
+        message: MessageRespons.PASSWORDFORMAT,
+      });
+    } else {
+      try {
+        const user = await User.findOne({ _id: req.decodeduser });
+  
+        if (!user) {
+          return res.status(404).json({
+            status: 404,
+            message: MessageRespons.NOTFOUND,
+          });
+        } else {
+          const isMatch = await bcrypt.compare(currentPassword, user.password);
+  
+          if (!isMatch) {
+            return res.status(400).json({
+              status: 400,
+              message: MessageRespons.INCORRECT,
+            });
+          } else {
+            const isSamePassword = await bcrypt.compare(
+              newPassword,
+              user.password
+            );
+  
+            if (isSamePassword) {
+              return res.status(400).json({
+                status: 400,
+                message: MessageRespons.NEWDIFFERENTOLD,
+              });
+            } else {
+              if (newPassword !== confirmPassword) {
+                return res.status(400).json({
+                  status: 400,
+                  message: MessageRespons.NEWCOMMATCH,
+                });
+              } else {
+                const hashedPassword = await passwordencrypt(
+                  newPassword,
+                  user.password
+                );
+                const UpdateUser = await User.findByIdAndUpdate(
+                  { _id: user._id },
+                  { $set: { password: hashedPassword } },
+                  { new: true }
+                );
+              }
+              return res.status(201).json({
+                status: 201,
+                message: MessageRespons.PSSWORDCHANGESUCC,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.log(error);
+        return res.status(304).json({
+          status: 304,
+          message: MessageRespons.NOTCHANGE,
+        });
+      }
+    }
+  
+}
+
+exports.uploadProfile = async (req, res) => {
+  try {
+    const userId = req.decodeduser;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        status: 404,
+        message: "User not found",
+      });
+    }
+
+    if (req.files && req.files.profile) {
+      const profileFile = req.files.profile[0];
+      const profileFilename = profileFile.filename;
+
+      if (user.profileFilename) {
+        // Delete the old profile picture from storage and set it to null in the database
+        const oldProfilePath = `public/profile/${user.profileFilename}`;
+        
+        // Use try-catch for unlinking and handle any potential errors
+        try {
+          await fs.unlink(oldProfilePath);
+          console.log(`Old profile file deleted: ${oldProfilePath}`);
+        } catch (unlinkError) {
+          console.error(`Error deleting old profile file: ${unlinkError}`);
+        }
+
+        user.profileFilename = null; // Set the old profile filename to null
+      }
+
+      user.profileFilename = profileFilename; // Update the user's profile filename
+      await user.save();
+
+      return res.status(201).json({
+        status: 201,
+        message: "Profile picture uploaded",
+        profileFilename: profileFilename,
+      });
+    } else {
+      return res.status(400).json({
+        status: 400,
+        message: responseMessage.NOTPROFILE,
+      });
+    }
+  } catch (error) {
+    console.error(`Error in uploadProfile: ${error}`);
+    res.status(500).json({
+      status: 500,
+      message: "Internal Server Error",
     });
   }
 };

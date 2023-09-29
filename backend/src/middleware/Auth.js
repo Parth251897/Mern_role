@@ -4,7 +4,7 @@ const User = require("../models/user");
 
 require("../controllor/UserControllor");
 
-const { jwt_secretkey,student_secretkey } = process.env;
+const { jwt_secretkey, student_secretkey } = process.env;
 
 const UserToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -18,14 +18,13 @@ const UserToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(authHeader, jwt_secretkey);
     req.decodeduser = decoded;
-    
   } catch (error) {
     return res.status(403).json({
       status: StatusCodes.FORBIDDEN,
       message: "Unauthorized:Invalid token",
     });
   }
- 
+
   next();
 };
 
@@ -41,36 +40,50 @@ const StudentToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(authHeader, student_secretkey);
     req.decodedstudent = decoded;
-   
   } catch (error) {
     return res.status(403).json({
       status: StatusCodes.FORBIDDEN,
       message: "Unauthorized:Invalid token",
     });
   }
- 
+
   next();
 };
 
-
-const restrict = (requiredRole) => {
+const restrict = (...role) => {
   return (req, res, next) => {
-   
-    if (req.decodeduser.role !== requiredRole) {
-      return res.status(403).json({
-        status: StatusCodes.FORBIDDEN,
-        message: "You do not have permission",
-      });
-    }
+    const userRoles = req.decodeduser.role;
 
-    next();
+    const allowed = role.some((role) => userRoles.includes(role));
+
+    if (allowed) {
+      next();
+    } else {
+      res
+        .status(403)
+        .json({ message: "Access denied ! you don't have a Rights to Access" });
+    }
   };
 };
+
+// const restrict = (requiredRole) => {
+//   return (req, res, next) => {
+
+//     if (req.decodeduser.role !== requiredRole) {
+//       return res.status(403).json({
+//         status: StatusCodes.FORBIDDEN,
+//         message: "You do not have permission",
+//       });
+//     }
+
+//     next();
+//   };
+// };
 const blockTokens = new Set();
 
 module.exports = {
   UserToken,
   blockTokens,
   restrict,
-  StudentToken
+  StudentToken,
 };

@@ -13,8 +13,13 @@
     "logout": "User Successfully Logout",
     "notsuccess": "Couldn't login. Please try again later.",
     "notcreatetoken": "Couldn't create access token. Please try again later",
-    "isdeleted":"You must verify your account and get activate your account"
-
-
-
+    "isdeleted":"You must verify your account and get activate your account",
+    "EMPTYFIELDS":"all field are required",
+"PASSWORDFORMAT":"must me in a formate",
+"NOTFOUND":"not found user",
+"INCORRECT":"current Password in currect",
+"NEWDIFFERENTOLD":"new Password must be different from old Password",
+"NEWCOMMATCH":"new Password and comform Password not match",
+"PSSWORDCHANGESUCC":"password change successfully",
+"NOTCHANGE":"password not change "
 }

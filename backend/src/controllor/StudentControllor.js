@@ -204,10 +204,6 @@ exports.StudentFind = async (req, res) => {
   }
 };
 
-exports.Studentupdate = async(req,res) => {
-
-}
-
 exports.Studentlogout = async(req,res) => {
   const token = req.headers.authorization;
 
@@ -249,5 +245,114 @@ exports.Studentdelete = async(req,res) => {
 }
 
 exports.StudentPasswordChange = async(req,res) => {
+  const { _id, currentPassword, newPassword, confirmPassword } = req.body;
+  
+  if (!newPassword || !confirmPassword || !currentPassword) {
+    return res.status(403).json({
+      status: 403,
+      error: true,
+      message: MessageRespons.EMPTYFIELDS,
+    });
+  } else if (!validatePassword(newPassword)) {
+    return res.status(400).json({
+      status: 400,
+      message: MessageRespons.PASSWORDFORMAT,
+    });
+  } else {
+    try {
+      const user = await Student.findOne({ _id: req.decodedstudent });
+
+      if (!user) {
+        return res.status(404).json({
+          status: 404,
+          message: MessageRespons.NOTFOUND,
+        });
+      } else {
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+        if (!isMatch) {
+          return res.status(400).json({
+            status: 400,
+            message: MessageRespons.INCORRECT,
+          });
+        } else {
+          const isSamePassword = await bcrypt.compare(
+            newPassword,
+            user.password
+          );
+
+          if (isSamePassword) {
+            return res.status(400).json({
+              status: 400,
+              message: MessageRespons.NEWDIFFERENTOLD,
+            });
+          } else {
+            if (newPassword !== confirmPassword) {
+              return res.status(400).json({
+                status: 400,
+                message: MessageRespons.NEWCOMMATCH,
+              });
+            } else {
+              const hashedPassword = await passwordencrypt(
+                newPassword,
+                user.password
+              );
+              const UpdateUser = await Student.findByIdAndUpdate(
+                { _id: user._id },
+                { $set: { password: hashedPassword } },
+                { new: true }
+              );
+            }
+            return res.status(201).json({
+              status: 201,
+              message: MessageRespons.PSSWORDCHANGESUCC,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      return res.status(304).json({
+        status: 304,
+        message: MessageRespons.NOTCHANGE,
+      });
+    }
+  }
+
+}
+
+exports.allStudentFind = async (req, res) => {
+  try {
+   const token = req.headers.authorization;
+
+    if (blockTokens.has(token)) {
+      return res.status(401).json({
+        status: StatusCodes.UNAUTHORIZED,
+        message: "admin logged out.",
+      });
+    } else {
+      const studentfind = await Student.find({});
+     
+     
+        res.status(200).json({
+          status: StatusCodes.OK,
+          studentfind,
+          message: "admin  Found ",
+        });
+      }
+    }
+  catch (error) {
+    return res.status(500).json({
+      status: StatusCodes.INTERNAL_SERVER_ERROR,
+      error: true,
+      message: MessageRespons.internal_server_error,
+    });
+  }
+};
+
+
+
+
+exports.Studentupdate = async(req,res) => {
 
 }

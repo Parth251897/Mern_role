@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
         type:String,
         require:false
     },
-    Profile:{
+    profile:{
         type:String,
         require:false
     },

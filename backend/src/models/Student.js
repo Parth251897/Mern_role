@@ -33,6 +33,10 @@ const StudentSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  Profile:{
+    type:String,
+    require:false
+},
   Address: {
     Address_Line_1: {
       type: String,
