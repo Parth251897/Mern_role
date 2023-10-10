@@ -25,7 +25,7 @@ exports.StudentRegister = async (req, res) => {
       StudentName,
       Gender,
       Category,
-      Email,
+      email,
       password,
       Phone,
       Address,
@@ -35,10 +35,10 @@ exports.StudentRegister = async (req, res) => {
     } = req.body;
 
    
-    if (!StudentName || !Email || !Phone) {
+    if (!StudentName || !email || !Phone) {
       return res.status(400).json({
         status: 400,
-        message: "StudentName, Email, and PhoneNumber are required fields.",
+        message: "StudentName, email, and PhoneNumber are required fields.",
       });
     } else if (!validatePassword(StudentData.password)) {
       return res.status(400).json({
@@ -46,12 +46,12 @@ exports.StudentRegister = async (req, res) => {
         message: MessageRespons.passwordvalidate,
       });
     } else {
-      const checkEmail = await Student.findOne({ Email });
+      const checkemail = await Student.findOne({ email });
       const checkPhone = await Student.findOne({ Phone });
 
-      if (checkEmail || checkPhone) {
-        const message = checkEmail
-          ? "Email already exists."
+      if (checkemail || checkPhone) {
+        const message = checkemail
+          ? "email already exists."
           : "Phone number already exists.";
 
         return res.status(400).json({
@@ -69,7 +69,7 @@ exports.StudentRegister = async (req, res) => {
           Gender,
           Category,
           password,
-          Email,
+          email,
           Phone,
           Address: {
             Address_Line_1: Address.Address_Line_1,
@@ -115,7 +115,7 @@ exports.StudentLogin = async (req, res) => {
     const { password, MasterField } = req.body;
 
     const userLogin = await Student.findOne({
-      $or: [{ Email: MasterField }, { Phone: MasterField }],
+      $or: [{ email: MasterField }, { Phone: MasterField }],
     });
 
     if (!userLogin) {

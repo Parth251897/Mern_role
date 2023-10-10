@@ -1,57 +1,46 @@
-const multer = require("multer")
-const express = require("express")
+const multer = require("multer");
+const express = require("express");
 const fs = require("fs");
-const path = require("path")
-const user = require("../models/user")
-const UserControllor = require("../controllor/UserControllor")
+const path = require("path");
+const user = require("../models/user");
+const UserControllor = require("../controllor/UserControllor");
 const maxSize = 2 * 1024 * 1024;
 
 let storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    if (file.fieldname === "profile") {
-      cb(null, "public/profile");
+    if (file.fieldname === "document") {
+      cb(null, "public/document");
     } else {
       cb(new Error("Invalid fieldname"));
     }
   },
   filename: function (req, file, cb) {
-    const timestamp = Date.now();
-    const ext = file.originalname.split('.').pop();
-    const filename = `profile_${timestamp}.${ext}`;
+    const ext = file.originalname.split(".").pop();
+    const timestamp = new Date().getTime();
+    const filename = `${file.originalname}_${timestamp}.${ext}`;
     cb(null, filename);
   },
 });
 
-let Upload = multer({ storage: storage }).fields([{ name: "profile" }]);
+let Upload = multer({ storage: storage }).fields([{ name: "document" }]);
 
 async function uploadFile(req, res, next) {
   Upload(req, res, async (error) => {
     if (error) {
       return res.status(400).json({
         status: 400,
-        message: responseMessage.WORNG,
+        message: responseMessage.WRONG,
       });
     } else {
-      if (req.files && req.files.profile) {
-      
-        const profileFilename = req.files.profile[0].filename;
-        req.profile = profileFilename;
-  
-        if (req.oldProfileFilename) {
-          const oldProfilePath = `public/profile/${req.oldProfileFilename}`;
-          fs.unlink(oldProfilePath, (err) => {
-            if (err) {
-              console.error(`Error deleting old profile file: ${err}`);
-            } else {
-              console.log(`Old profile file deleted: ${oldProfilePath}`);
-            }
-          });
-        }
-        req.oldProfileFilename = profileFilename;
+      if (req.files && req.files.document) {
+        req.document = req.files.document.map((file) => {
+          const documentpath = `public/document/${file.filename}`;
+          return documentpath;
+        });
       }
-
       next();
     }
   });
 }
+
 module.exports = uploadFile;

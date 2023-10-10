@@ -2,20 +2,22 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const moment = require("moment");
 const { StatusCodes } = require("http-status-codes");
-const fs = require('fs');
+const fs = require("fs");
 const User = require("../models/user");
-const  {TokenGenerate}  = require("../utils/jwt");
+const { TokenGenerate } = require("../utils/jwt");
 const { blockTokens } = require("../middleware/Auth");
 const MessageRespons = require("../utils/MessageRespons.json");
 const {
   passwordencrypt,
   validatePassword,
 } = require("../services/CommonServices");
-const uploadFile = require("../middleware/Upload")
+const uploadFile = require("../middleware/Upload");
+const path = require("path");
 
+//register signup
 exports.Register = async (req, res) => {
   try {
-    let { name, email, phone, password,profile, role } = req.body;
+    let { name, email, phone, password, profile, document, role } = req.body;
 
     if (!name || !email || !phone) {
       return res.status(400).json({
@@ -49,25 +51,24 @@ exports.Register = async (req, res) => {
           phone,
           password,
           role,
-          profile:req.profile,
+          document: req.document,
           created,
         });
 
-        user
-          .save()
-          .then((data) => {
+        user.save().then((data, err) => {
+          if (err) {
+            return res.status(400).json({
+              status: StatusCodes.BAD_REQUEST,
+              message: MessageRespons.bad_request,
+            });
+          } else {
             return res.status(201).json({
               status: StatusCodes.CREATED,
               message: MessageRespons.created,
               UserData: data,
             });
-          })
-          .catch((err) => {
-            return res.status(400).json({
-              status: StatusCodes.BAD_REQUEST,
-              message: MessageRespons.bad_request,
-            });
-          });
+          }
+        });
       }
     }
   } catch (error) {
@@ -78,11 +79,11 @@ exports.Register = async (req, res) => {
   }
 };
 
+//login
 exports.login = async (req, res) => {
   try {
     const { password, MasterField, role } = req.body;
 
-   
     const userLogin = await User.findOne({
       $or: [
         { email: MasterField },
@@ -91,7 +92,6 @@ exports.login = async (req, res) => {
       ],
     });
 
-    
     if (!userLogin) {
       return res.status(401).json({
         status: StatusCodes.UNAUTHORIZED,
@@ -99,7 +99,6 @@ exports.login = async (req, res) => {
       });
     }
 
-  
     if (userLogin.isActivated) {
       return res.status(401).json({
         status: StatusCodes.UNAUTHORIZED,
@@ -107,7 +106,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    
     if (userLogin.role !== role) {
       return res.status(403).json({
         status: StatusCodes.FORBIDDEN,
@@ -115,9 +113,7 @@ exports.login = async (req, res) => {
       });
     }
 
-   
     const isvalid = await bcrypt.compare(password, userLogin.password);
-
 
     if (!isvalid) {
       return res.status(401).json({
@@ -126,7 +122,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    const { error, token } = await TokenGenerate({ _id: userLogin._id, role });
+    const { error, accessToken,refreshToken } = await TokenGenerate({ _id: userLogin._id, role });
 
     if (error) {
       return res.status(400).json({
@@ -137,12 +133,13 @@ exports.login = async (req, res) => {
       return res.status(200).json({
         status: StatusCodes.OK,
         success: true,
-        accesstoken: token,
+        accesstoken: accessToken,
+        refreshToken:refreshToken,
         message: MessageRespons.loginsuccess,
       });
     }
   } catch (error) {
-    console.error(error); 
+    console.error(error);
     return res.status(401).json({
       status: 401,
       message: MessageRespons.notsuccess,
@@ -150,9 +147,10 @@ exports.login = async (req, res) => {
   }
 };
 
+//findbyid
 exports.userfind = async (req, res) => {
   try {
-   const token = req.headers.authorization;
+    const token = req.headers.authorization;
 
     if (blockTokens.has(token)) {
       return res.status(401).json({
@@ -161,7 +159,7 @@ exports.userfind = async (req, res) => {
       });
     } else {
       const userfind = await User.find({ _id: req.decodeduser });
-     
+
       if (!userfind) {
         return res.status(401).json({
           status: StatusCodes.UNAUTHORIZED,
@@ -189,13 +187,22 @@ exports.userfind = async (req, res) => {
   }
 };
 
+//update
 exports.UserUpdate = async (req, res) => {
   try {
     let { email, phone } = req.body;
+    const { _id } = req.decodeduser;
 
+    const Email = email ? email.toLowerCase() : undefined;
 
-    const checkemail = await User.findOne({ email });
-    const checkphone = await User.findOne({ phone });
+    const checkemail = await User.findOne({
+      email,
+      _id: { $ne: req.decodeduser },
+    });
+    const checkphone = await User.findOne({
+      phone,
+      _id: { $ne: req.decodeduser },
+    });
 
     if (checkemail || checkphone) {
       const message = checkemail
@@ -209,7 +216,7 @@ exports.UserUpdate = async (req, res) => {
     } else {
       created = moment(Date.now()).format("LLL");
 
-      const user = await User.findById({ _id: req.decodeduser });
+      const user = await User.findById(_id);
 
       if (!user) {
         return res.status(404).json({
@@ -218,20 +225,21 @@ exports.UserUpdate = async (req, res) => {
         });
       } else {
         let user = {
-          email,
+          email: Email,
           phone,
+
           created,
         };
 
         const UserUpdate = await User.findByIdAndUpdate(
-          { _id: req.decodeduser },
+          { _id },
           { $set: user },
           { new: true }
         );
 
         return res.status(201).json({
           status: StatusCodes.CREATED,
-          message: MessageRespons.created,
+          message: "data updated",
         });
       }
     }
@@ -243,6 +251,7 @@ exports.UserUpdate = async (req, res) => {
   }
 };
 
+//deactive or softdelete
 exports.UserDelete = async (req, res) => {
   try {
     let user = await User.findByIdAndUpdate(
@@ -271,10 +280,11 @@ exports.UserDelete = async (req, res) => {
   }
 };
 
+//logout
 exports.logout = async (req, res) => {
   const token = req.headers.authorization;
 
- blockTokens.add(token);
+  blockTokens.add(token);
 
   return res.status(200).json({
     status: StatusCodes.OK,
@@ -282,9 +292,10 @@ exports.logout = async (req, res) => {
   });
 };
 
+//find all
 exports.alluserfind = async (req, res) => {
   try {
-   const token = req.headers.authorization;
+    const token = req.headers.authorization;
 
     if (blockTokens.has(token)) {
       return res.status(401).json({
@@ -293,16 +304,14 @@ exports.alluserfind = async (req, res) => {
       });
     } else {
       const userfind = await User.find({});
-     
-     
-        res.status(200).json({
-          status: StatusCodes.OK,
-          userfind,
-          message: "User  Found ",
-        });
-      }
+
+      res.status(200).json({
+        status: StatusCodes.OK,
+        userfind,
+        message: "User  Found ",
+      });
     }
-  catch (error) {
+  } catch (error) {
     return res.status(500).json({
       status: StatusCodes.INTERNAL_SERVER_ERROR,
       error: true,
@@ -311,87 +320,90 @@ exports.alluserfind = async (req, res) => {
   }
 };
 
-exports.UserPasswordChange = async(req,res) => {
-    const { _id, currentPassword, newPassword, confirmPassword } = req.body;
-  
-    if (!newPassword || !confirmPassword || !currentPassword) {
-      return res.status(403).json({
-        status: 403,
-        error: true,
-        message: MessageRespons.EMPTYFIELDS,
-      });
-    } else if (!validatePassword(newPassword)) {
-      return res.status(400).json({
-        status: 400,
-        message: MessageRespons.PASSWORDFORMAT,
-      });
-    } else {
-      try {
-        const user = await User.findOne({ _id: req.decodeduser });
-  
-        if (!user) {
-          return res.status(404).json({
-            status: 404,
-            message: MessageRespons.NOTFOUND,
+//change or update password
+exports.UserPasswordChange = async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  if (!newPassword || !confirmPassword || !currentPassword) {
+    return res.status(403).json({
+      status: 403,
+      error: true,
+      message: MessageRespons.EMPTYFIELDS,
+    });
+  } else if (!validatePassword(newPassword)) {
+    return res.status(400).json({
+      status: 400,
+      message: MessageRespons.PASSWORDFORMAT,
+    });
+  } else {
+    try {
+      const user = await User.findOne({ _id: req.decodeduser });
+
+      if (!user) {
+        return res.status(404).json({
+          status: 404,
+          message: MessageRespons.NOTFOUND,
+        });
+      } else {
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+        if (!isMatch) {
+          return res.status(400).json({
+            status: 400,
+            message: MessageRespons.INCORRECT,
           });
         } else {
-          const isMatch = await bcrypt.compare(currentPassword, user.password);
-  
-          if (!isMatch) {
+          const isSamePassword = await bcrypt.compare(
+            newPassword,
+            user.password
+          );
+
+          if (isSamePassword) {
             return res.status(400).json({
               status: 400,
-              message: MessageRespons.INCORRECT,
+              message: MessageRespons.NEWDIFFERENTOLD,
             });
           } else {
-            const isSamePassword = await bcrypt.compare(
-              newPassword,
-              user.password
-            );
-  
-            if (isSamePassword) {
+            if (newPassword !== confirmPassword) {
               return res.status(400).json({
                 status: 400,
-                message: MessageRespons.NEWDIFFERENTOLD,
+                message: MessageRespons.NEWCOMMATCH,
               });
             } else {
-              if (newPassword !== confirmPassword) {
-                return res.status(400).json({
-                  status: 400,
-                  message: MessageRespons.NEWCOMMATCH,
-                });
-              } else {
-                const hashedPassword = await passwordencrypt(
-                  newPassword,
-                  user.password
-                );
-                const UpdateUser = await User.findByIdAndUpdate(
-                  { _id: user._id },
-                  { $set: { password: hashedPassword } },
-                  { new: true }
-                );
-              }
-              return res.status(201).json({
-                status: 201,
-                message: MessageRespons.PSSWORDCHANGESUCC,
-              });
+              const hashedPassword = await passwordencrypt(
+                newPassword,
+                user.password
+              );
+              const UpdateUser = await User.findByIdAndUpdate(
+                { _id: user._id },
+                { $set: { password: hashedPassword } },
+                { new: true }
+              );
             }
+            return res.status(201).json({
+              status: 201,
+              message: MessageRespons.PSSWORDCHANGESUCC,
+            });
           }
         }
-      } catch (error) {
-        console.log(error);
-        return res.status(304).json({
-          status: 304,
-          message: MessageRespons.NOTCHANGE,
-        });
       }
+    } catch (error) {
+      console.log(error);
+      return res.status(304).json({
+        status: 304,
+        message: MessageRespons.NOTCHANGE,
+      });
     }
-  
-}
+  }
+};
 
-exports.uploadProfile = async (req, res) => {
+//document update
+exports.updatedocument = async (req, res) => {
   try {
-    const userId = req.decodeduser;
-    const user = await User.findById(userId);
+    const { _id } = req.decodeduser;
+    const { document } = req;
+
+    const user = await User.findById(_id);
 
     if (!user) {
       return res.status(404).json({
@@ -400,41 +412,20 @@ exports.uploadProfile = async (req, res) => {
       });
     }
 
-    if (req.files && req.files.profile) {
-      const profileFile = req.files.profile[0];
-      const profileFilename = profileFile.filename;
-
-      if (user.profileFilename) {
-        // Delete the old profile picture from storage and set it to null in the database
-        const oldProfilePath = `public/profile/${user.profileFilename}`;
-        
-        // Use try-catch for unlinking and handle any potential errors
-        try {
-          await fs.unlink(oldProfilePath);
-          console.log(`Old profile file deleted: ${oldProfilePath}`);
-        } catch (unlinkError) {
-          console.error(`Error deleting old profile file: ${unlinkError}`);
-        }
-
-        user.profileFilename = null; // Set the old profile filename to null
-      }
-
-      user.profileFilename = profileFilename; // Update the user's profile filename
-      await user.save();
-
-      return res.status(201).json({
-        status: 201,
-        message: "Profile picture uploaded",
-        profileFilename: profileFilename,
-      });
-    } else {
-      return res.status(400).json({
-        status: 400,
-        message: responseMessage.NOTPROFILE,
-      });
+    if (user.documentPaths && user.documentPaths.length > 0) {
+      user.documentPaths.push(user.document);
     }
+
+    user.document = document[0];
+
+    await user.save();
+
+    res.status(200).json({
+      status: 200,
+      message: "Document updated successfully",
+    });
   } catch (error) {
-    console.error(`Error in uploadProfile: ${error}`);
+    console.error(error);
     res.status(500).json({
       status: 500,
       message: "Internal Server Error",

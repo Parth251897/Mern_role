@@ -1,47 +1,60 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema(
+  {
     name: {
-        type: String,
-        required: false
+      type: String,
+      required: false,
     },
     email: {
-        type: String,
-        required: false,
-        match:[/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Invalid email format.']
+      type: String,
+      required: false,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Invalid email format.",
+      ],
     },
     password: {
-        type: String,
-        required: false
+      type: String,
+      required: false,
     },
-    phone:{
-        type:String,
-        require:false
+    phone: {
+      type: String,
+      require: false,
     },
-    profile:{
-        type:String,
-        require:false
+    profile: {
+      type: String,
+      require: false,
+    },
+    document: {
+      type: Array,
+      require: false,
     },
     role: {
-        type: String,
-        required: false,
-        enum: ['user', 'admin','supervisor'],
-        default:'user' 
+      type: String,
+      required: false,
+      enum: ["user", "admin", "supervisor"],
+      default: "user",
     },
 
-    isActivated:{
-        type:Boolean,
-        default:false
+    isActivated: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      type: String,
+    },
+    otpexpiration: {
+      type: String,
     },
 
     created: {
-        type: String,
-        required: false
+      type: String,
+      required: false,
     },
-   
-    
-}, { versionKey: false });
+  },
+  { versionKey: false }
+);
 
-const User = mongoose.model("User", userSchema)
-module.exports = User
+const User = mongoose.model("User", userSchema);
+module.exports = User;
